@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import i18n from "../i18n/config";
 import { productAPI, orderAPI, settingsAPI, Settings, getImageUrl } from "../services/api";
 import { Product, ProductQuantityOffer } from "../types";
 import { formatPrice } from "../utils/formatPrice";
