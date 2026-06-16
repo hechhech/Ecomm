@@ -72,6 +72,8 @@ export interface Order {
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   createdAt?: string;
   updatedAt?: string;
+  totalPrice?: number;
+
 }
 
 // Types pour le thème
