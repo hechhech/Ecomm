@@ -30,6 +30,18 @@ export interface Product {
   freeDeliveryEnabled?: boolean | null;
   freeDeliveryMinQuantity?: number | null;
   customDeliveryFee?: number | null;
+  quantityOffers?: ProductQuantityOffer[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductQuantityOffer {
+  _id?: string;
+  product?: string;
+  quantity: number;
+  totalPrice: number;
+  offerText?: string;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

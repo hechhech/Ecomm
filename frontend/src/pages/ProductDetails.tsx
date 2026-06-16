@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import i18n from "../i18n/config";
 import { productAPI, orderAPI, settingsAPI, Settings, getImageUrl } from "../services/api";
-import { Product } from "../types";
+import { Product, ProductQuantityOffer } from "../types";
 import { formatPrice } from "../utils/formatPrice";
 import reviewsData from "../data/reviews.json";
 import { DescriptiveImages } from "../components/DescriptiveImages";
@@ -111,6 +111,13 @@ export const ProductDetails: React.FC = () => {
   // PRICE CALCULATIONS
   // -------------------------
   const quantity = form.quantity;
+  const quantityOffers = Array.isArray(product.quantityOffers) ? product.quantityOffers : [];
+  const activeQuantityOffers = [...quantityOffers]
+    .filter((offer) => offer.isActive !== false)
+    .sort((first, second) => first.quantity - second.quantity);
+  const exactQuantityOffer = quantityOffers.find(
+    (offer: ProductQuantityOffer) => offer.isActive !== false && offer.quantity === quantity
+  );
   
   // Utiliser les paramètres du produit en priorité, sinon les settings globaux, sinon valeurs par défaut
   const quantityDiscountEnabled = product.quantityDiscountEnabled !== null && product.quantityDiscountEnabled !== undefined
@@ -141,11 +148,16 @@ export const ProductDetails: React.FC = () => {
     
   const subtotal = unitPrice * quantity;
 
-  // Vérifier si la remise quantité s'applique
-  const hasDiscount = quantityDiscountEnabled && quantity >= discountMinQuantity;
+  const quantityOfferTotalPrice = exactQuantityOffer ? exactQuantityOffer.totalPrice : null;
+
+  // Vérifier si l'offre quantité s'applique avant la remise quantité classique
+  const hasQuantityOffer = Boolean(exactQuantityOffer);
+  const hasDiscount = !hasQuantityOffer && quantityDiscountEnabled && quantity >= discountMinQuantity;
   const discountAmount = hasDiscount ? subtotal * (discountPercentage / 100) : 0;
 
-  const priceAfterDiscount = subtotal - discountAmount;
+  const priceAfterDiscount = hasQuantityOffer
+    ? quantityOfferTotalPrice ?? subtotal
+    : subtotal - discountAmount;
 
   // Vérifier si la livraison est gratuite
   const isFreeDelivery = freeDeliveryEnabled && quantity >= freeDeliveryMinQuantity;
@@ -156,6 +168,15 @@ export const ProductDetails: React.FC = () => {
   const images = product.images && product.images.length
     ? product.images.map(img => getImageUrl(img))
     : [];
+
+  const getQuantityOfferLabel = (offer: ProductQuantityOffer) => {
+    if (offer.offerText && offer.offerText.trim()) {
+      return offer.offerText;
+    }
+
+    const priceLabel = formatPrice(offer.totalPrice);
+    return `${offer.quantity} pièces = ${priceLabel}`;
+  };
 
   // -------------------------
   // SUBMIT ORDER
@@ -196,20 +217,9 @@ export const ProductDetails: React.FC = () => {
         address: form.address,
         product: product._id,
         quantity: form.quantity,
-        
-        // Informations de prix
-        unitPrice: product.price,
-        productPromoPercentage: product.pourcentagePromo || 0,
-        unitPriceWithPromo: unitPrice,
-        subtotal: subtotal,
-        quantityDiscountPercentage: hasDiscount ? discountPercentage : 0,
-        quantityDiscountAmount: discountAmount,
-        priceAfterDiscount: priceAfterDiscount,
-        deliveryFee: finalDeliveryFee,
-        isFreeDelivery: isFreeDelivery,
-        totalPrice: totalPrice,
-        deliveryType: "domicile"
       } as any);
+
+      const finalTotal = createdOrder.totalPrice ?? totalPrice;
 
       // Afficher la notification de succès avec toast
       toast.success(t("orders.orderSuccess"), {
@@ -224,7 +234,7 @@ navigate("/order-success", {
     productId: product._id,
     productName: product.name,
     quantity: form.quantity,
-    totalPrice: totalPrice,
+      totalPrice: finalTotal,
     phone: form.phone,
     ville: form.ville,
     deliveryType: "Livraison à domicile"
@@ -410,44 +420,62 @@ navigate("/order-success", {
               {/* PROMO SECTION */}
               {settings && (
                 <div className="promo-section">
-                  {quantityDiscountEnabled && (
-                    <div className="promo-item">
-                      <span className="promo-icon">🎁</span>
-                      <span className="promo-text">
-                        {(() => {
-                          const currentLang = i18n.language || 'fr';
-                          const isArabic = currentLang === 'ar';
-                          const isEnglish = currentLang === 'en';
-                          
-                          if (isArabic) {
-                            return `${discountMinQuantity} منتج = -${discountPercentage}%`;
-                          } else if (isEnglish) {
-                            return `${discountMinQuantity} product${discountMinQuantity > 1 ? 's' : ''} = -${discountPercentage}%`;
-                          } else {
-                            return `${discountMinQuantity} produit${discountMinQuantity > 1 ? 's' : ''} = -${discountPercentage}%`;
-                          }
-                        })()}
-                      </span>
-                    </div>
-                  )}
-                  {freeDeliveryEnabled && (
-                    <div className="promo-item">
-                      <span className="promo-icon">🚚</span>
-                      <span className="promo-text">
-                        {(() => {
-                          const currentLang = i18n.language || 'fr';
-                          const isArabic = currentLang === 'ar';
-                          const isEnglish = currentLang === 'en';
-                          
-                          if (isArabic) {
-                            return `${freeDeliveryMinQuantity} منتج = توصيل مجاني`;
-                          } else if (isEnglish) {
-                            return `${freeDeliveryMinQuantity} product${freeDeliveryMinQuantity > 1 ? 's' : ''} = Free delivery`;
-                          } else {
-                            return `${freeDeliveryMinQuantity} produit${freeDeliveryMinQuantity > 1 ? 's' : ''} = Livraison gratuite`;
-                          }
-                        })()}
-                      </span>
+                  {activeQuantityOffers.length > 0 && (
+                    <div className="promo-item promo-offers-block">
+                      <div className="promo-offers-content">
+                        <div
+                          className="promo-offers-header"
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}
+                        >
+                          <span className="promo-icon" style={{ flexShrink: 0 }}>🏷️</span>
+                          <div className="promo-text promo-offers-title">
+                            {t("products.specialOfferTitle") || "Offre spéciale"}
+                          </div>
+                        </div>
+                        <div className="quantity-offers-grid" style={{ marginTop: '6px' }}>
+                          {activeQuantityOffers.map((offer) => (
+                            <label
+                              key={`${offer.quantity}-${offer.totalPrice}`}
+                              className={`quantity-offer-card ${offer.quantity === quantity ? 'active' : ''}`}
+                              style={{
+                                cursor: 'pointer',
+                                border: '1px solid rgba(0, 0, 0, 0.08)',
+                                background: offer.quantity === quantity ? 'rgba(139, 111, 71, 0.08)' : '#fff',
+                                padding: '12px 14px',
+                                textAlign: 'left',
+                                borderRadius: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={offer.quantity === quantity}
+                                onChange={() => {
+                                  setForm((current) => ({
+                                    ...current,
+                                    quantity: current.quantity === offer.quantity ? 1 : offer.quantity,
+                                  }));
+                                }}
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  accentColor: '#8b6f47',
+                                  flexShrink: 0,
+                                }}
+                                aria-label={offer.offerText || `${offer.quantity} ${t("orders.quantity")}`}
+                              />
+                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span className="quantity-offer-text" style={{ whiteSpace: 'pre-wrap' }}>
+                                  {getQuantityOfferLabel(offer)}
+                                </span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -507,6 +535,24 @@ navigate("/order-success", {
                   </span>
                   <span className="price-summary-value">{formatPrice(subtotal)}</span>
                 </div>
+
+                {hasQuantityOffer && (
+                  <div className="price-summary-row price-summary-discount">
+                    <span className="price-summary-label">
+                      {t("products.specialOfferTitle") || "Offre spéciale"}
+                      <span className="save-badge">
+                        <span style={{ whiteSpace: 'pre-wrap' }}>
+                          {getQuantityOfferLabel(exactQuantityOffer || { quantity, totalPrice: quantityOfferTotalPrice ?? subtotal })}
+                        </span>
+                        {' '}
+                        = {formatPrice(quantityOfferTotalPrice ?? subtotal)}
+                      </span>
+                    </span>
+                    <span className="price-summary-value discount-value">
+                      {formatPrice(quantityOfferTotalPrice ?? subtotal)}
+                    </span>
+                  </div>
+                )}
 
                 {hasDiscount && (
                   <div className="price-summary-row price-summary-discount">

@@ -96,6 +96,9 @@
     "feature3": "إرجاع خلال 30 يوماً",
     "limitedStock": "مخزون محدود",
     "rating": "التقييم",
+    "specialOfferTitle": "عرض خاص",
+    "specialOfferSelect": "اختيار",
+    "specialOfferSelected": "تم الاختيار",
     "orderConfirmation": "هل أنت متأكد من أنك تريد تأكيد هذا الطلب؟"
   },
   "orders": {

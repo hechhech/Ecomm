@@ -96,6 +96,9 @@
     "feature3": "30-day return",
     "limitedStock": "Limited stock",
     "rating": "Rating",
+    "specialOfferTitle": "Special offer",
+    "specialOfferSelect": "Select",
+    "specialOfferSelected": "Selected",
     "orderConfirmation": "Are you sure you want to place this order?"
   },
   "orders": {

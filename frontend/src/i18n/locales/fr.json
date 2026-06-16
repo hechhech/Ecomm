@@ -96,6 +96,9 @@
     "feature3": "Retour sous 30 jours",
     "limitedStock": "Stock limité",
     "rating": "Note",
+    "specialOfferTitle": "Offre spéciale",
+    "specialOfferSelect": "Sélectionner",
+    "specialOfferSelected": "Choisi",
     "orderConfirmation": "Êtes-vous sûr de vouloir passer cette commande ?"
   },
   "orders": {

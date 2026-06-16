@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminCategoryAPI, adminProductAPI, getImageUrl } from '../services/api';
-import { Category, Product } from '../types';
+import { Category, Product, ProductQuantityOffer } from '../types';
 import { formatPrice } from '../utils/formatPrice';
 import { EditIcon, ViewIcon, DeleteIcon } from '../components/icons/ActionIcons';
+
+type QuantityOfferForm = {
+  quantity: string;
+  totalPrice: string;
+  offerText: string;
+};
 
 type ProductFormData = {
   name: string;
@@ -23,7 +29,14 @@ type ProductFormData = {
   freeDeliveryMinQuantity: string;
   useCustomDeliveryFee: boolean;
   customDeliveryFee: string;
+  quantityOffers: QuantityOfferForm[];
 };
+
+const createQuantityOffer = (): QuantityOfferForm => ({
+  quantity: '',
+  totalPrice: '',
+  offerText: '',
+});
 
 const createInitialFormData = (): ProductFormData => ({
   name: '',
@@ -42,6 +55,7 @@ const createInitialFormData = (): ProductFormData => ({
   freeDeliveryMinQuantity: '',
   useCustomDeliveryFee: false,
   customDeliveryFee: '',
+  quantityOffers: [],
 });
 
 export const AdminProducts: React.FC = () => {
@@ -144,6 +158,29 @@ export const AdminProducts: React.FC = () => {
     setCategorySearch('');
   };
 
+  const updateQuantityOffer = (index: number, field: keyof QuantityOfferForm, value: string) => {
+    setFormData((current) => ({
+      ...current,
+      quantityOffers: current.quantityOffers.map((offer, offerIndex) => (
+        offerIndex === index ? { ...offer, [field]: value } : offer
+      )),
+    }));
+  };
+
+  const addQuantityOffer = () => {
+    setFormData((current) => ({
+      ...current,
+      quantityOffers: [...current.quantityOffers, createQuantityOffer()],
+    }));
+  };
+
+  const removeQuantityOffer = (index: number) => {
+    setFormData((current) => ({
+      ...current,
+      quantityOffers: current.quantityOffers.filter((_, offerIndex) => offerIndex !== index),
+    }));
+  };
+
   const buildFormPayload = () => {
     const payload = new FormData();
     payload.append('name', formData.name);
@@ -195,6 +232,21 @@ export const AdminProducts: React.FC = () => {
     } else {
       payload.append('customDeliveryFee', 'null');
     }
+
+    const normalizedQuantityOffers = formData.quantityOffers
+      .map((offer) => ({
+        quantity: Number.parseInt(offer.quantity, 10),
+        totalPrice: Number.parseFloat(offer.totalPrice),
+        offerText: offer.offerText.trim(),
+      }))
+      .filter((offer) => Number.isFinite(offer.quantity) && Number.isFinite(offer.totalPrice) && offer.quantity >= 2 && offer.totalPrice >= 0)
+      .map((offer) => ({
+        quantity: offer.quantity,
+        totalPrice: offer.totalPrice,
+        ...(offer.offerText ? { offerText: offer.offerText } : {}),
+      }));
+
+    payload.append('quantityOffers', JSON.stringify(normalizedQuantityOffers));
     
     imageFiles.forEach((file) => {
       payload.append('images', file);
@@ -231,6 +283,13 @@ export const AdminProducts: React.FC = () => {
     const hasCustomDiscount = product.quantityDiscountEnabled !== null && product.quantityDiscountEnabled !== undefined;
     const hasCustomFreeDelivery = product.freeDeliveryEnabled !== null && product.freeDeliveryEnabled !== undefined;
     const hasCustomDeliveryFee = product.customDeliveryFee !== null && product.customDeliveryFee !== undefined;
+    const quantityOffers = Array.isArray(product.quantityOffers)
+      ? product.quantityOffers.map((offer: ProductQuantityOffer) => ({
+          quantity: String(offer.quantity ?? ''),
+          totalPrice: String(offer.totalPrice ?? ''),
+          offerText: offer.offerText ?? '',
+        }))
+      : [];
     
     setFormData({
       name: product.name,
@@ -256,6 +315,7 @@ export const AdminProducts: React.FC = () => {
       freeDeliveryMinQuantity: product.freeDeliveryMinQuantity?.toString() || '',
       useCustomDeliveryFee: hasCustomDeliveryFee,
       customDeliveryFee: product.customDeliveryFee?.toString() || '',
+      quantityOffers,
     });
     setExistingImages(product.images ?? (product.image ? [product.image] : []));
     setImageFiles([]);
@@ -445,6 +505,65 @@ export const AdminProducts: React.FC = () => {
                   <span className="stock-hint">
                     Quantité totale disponible en stock (0 = stock illimité)
                   </span>
+                </div>
+
+                <div className="form-group">
+                  <label>Offres quantité</label>
+                  <div className="quantity-offers-editor">
+                    <p className="admin-form-hint">
+                      Ajoutez les paliers comme 2 pièces = 25 DT ou 3 pièces = 35 DT. Le backend appliquera l'offre exacte.
+                    </p>
+
+                    {formData.quantityOffers.length === 0 && (
+                      <p className="admin-form-hint">Aucune offre quantité ajoutée.</p>
+                    )}
+
+                    <div className="quantity-offers-list">
+                      {formData.quantityOffers.map((offer, index) => (
+                        <div key={`quantity-offer-${index}`} className="quantity-offer-row">
+                          <input
+                            type="number"
+                            min="2"
+                            className="admin-form-input"
+                            value={offer.quantity}
+                            onChange={(e) => updateQuantityOffer(index, 'quantity', e.target.value)}
+                            placeholder="Quantité"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            className="admin-form-input"
+                            value={offer.totalPrice}
+                            onChange={(e) => updateQuantityOffer(index, 'totalPrice', e.target.value)}
+                            placeholder="Prix total"
+                          />
+                          <textarea
+                            className="admin-form-textarea"
+                            value={offer.offerText}
+                            onChange={(e) => updateQuantityOffer(index, 'offerText', e.target.value)}
+                            placeholder="Texte de l'offre"
+                            rows={3}
+                          />
+                          <button
+                            type="button"
+                            className="admin-btn-secondary quantity-offer-remove-btn"
+                            onClick={() => removeQuantityOffer(index)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="admin-btn-secondary"
+                      onClick={addQuantityOffer}
+                    >
+                      Ajouter une offre
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="form-group">
@@ -963,6 +1082,22 @@ export const AdminProducts: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  {Array.isArray(viewingProduct.quantityOffers) && viewingProduct.quantityOffers.length > 0 && (
+                    <div className="info-item">
+                      <span className="info-label">Offres quantité</span>
+                      <div className="quantity-offers-summary">
+                        {viewingProduct.quantityOffers
+                          .filter((offer) => offer.isActive !== false)
+                          .map((offer) => (
+                            <div key={`${offer.quantity}-${offer.totalPrice}`} className="quantity-offer-summary-item">
+                              <strong>{offer.offerText || `${offer.quantity} pièces`}</strong>
+                              <span>{formatPrice(offer.totalPrice)}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="info-item">
                     <span className="info-label">Stock</span>
