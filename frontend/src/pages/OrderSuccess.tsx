@@ -93,14 +93,14 @@ useEffect(() => {
             <strong
                 style={{ direction: "ltr", unicodeBidi: "embed" }}
             >
-                +216 94877906
+                +216 24845309
             </strong>
             </p>
 
 
           <a
             className="whatsapp-link"
-            href="https://wa.me/21694877906"
+            href="https://wa.me/21624845309"
             target="_blank"
             rel="noreferrer"
           >
