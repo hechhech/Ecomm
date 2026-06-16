@@ -60,28 +60,34 @@ export const Products: React.FC = () => {
 
   return (
     <div className="products-page">
-      <div className="products-header">
-        <h1 className="products-title">{t("products.title")}</h1>
-        <p className="products-subtitle">
-          {products.length} produit(s) trouvé(s)
-        </p>
-      </div>
-
-      {categories.length > 1 && (
-        <div className="products-filters">
-          {categories.map((category) => (
-            <button
-              key={category}
-onClick={() => setSelectedCategory(category || "all")}
-              className={`filter-btn ${
-                selectedCategory === category ? "active" : ""
-              }`}
-            >
-              {category === "all" ? "Tous" : category}
-            </button>
-          ))}
+      <div className="products-header products-header-card">
+        <div className="products-header-copy">
+          <h1 className="products-title">{t("products.title")}</h1>
+          <p className="products-subtitle">
+            {filteredProducts.length} produit(s) affiché(s) sur {products.length}
+          </p>
         </div>
-      )}
+
+        <div className="products-filter-panel">
+          <label className="products-filter-label" htmlFor="category-filter">
+            Catégorie
+          </label>
+          <div className="products-select-wrap">
+            <select
+              id="category-filter"
+              className="products-select"
+              value={selectedCategory}
+              onChange={(event) => setSelectedCategory(event.target.value)}
+            >
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category === "all" ? "Tous" : category}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
       {filteredProducts.length === 0 ? (
         <p>Aucun produit trouvé.</p>
